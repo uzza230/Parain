@@ -67,7 +67,7 @@ input,select,textarea{font-family:'Sarabun',sans-serif;}
 .login-brand .name small{display:block;font-family:'Sarabun';font-weight:400;font-size:11px;color:var(--ink-soft);}
 .login-card h1{font-size:24px;font-weight:600;margin:0 0 4px;color:var(--navy);text-align:center;}
 .login-card .sub{text-align:center;color:var(--ink-soft);font-size:13.5px;margin:0 0 22px;}
-.type-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:22px;}
+.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;}
 .type-card{
   border:1.5px solid var(--line);border-radius:12px;padding:14px 10px;
   text-align:left;background:#fff;transition:.15s;
@@ -77,7 +77,6 @@ input,select,textarea{font-family:'Sarabun',sans-serif;}
   font-size:15px;margin-bottom:8px;
 }
 .type-card.student .ic{background:#E6F1FB;color:var(--blue);}
-.type-card.staff .ic{background:#EAF6E3;color:var(--leaf);}
 .type-card.admin .ic{background:#EEEDFE;color:var(--purple);}
 .type-card b{display:block;font-size:13px;font-family:'Kanit';font-weight:500;color:var(--navy);}
 .type-card span{display:block;font-size:10.5px;color:var(--ink-soft);margin-top:2px;line-height:1.4;}
@@ -266,11 +265,6 @@ select.act-select{width:100%;max-width:340px;}
           <b>นักศึกษา</b>
           <span>ตรวจสอบข้อมูลและกิจกรรมที่เข้าร่วม</span>
         </button>
-        <button class="type-card staff" id="type-staff" onclick="setLoginType('staff')">
-          <div class="ic">&#128188;</div>
-          <b>บุคลากร</b>
-          <span>จัดการข้อมูลกิจกรรมและรายงาน</span>
-        </button>
         <button class="type-card admin" id="type-admin" onclick="setLoginType('admin')">
           <div class="ic">&#9881;&#65039;</div>
           <b>ผู้ดูแลระบบ</b>
@@ -279,7 +273,7 @@ select.act-select{width:100%;max-width:340px;}
       </div>
 
       <label class="field-label">รหัสผู้ใช้</label>
-      <input type="text" id="login-id" placeholder="รหัสนักศึกษา หรือ รหัสบุคลากร">
+      <input type="text" id="login-id" placeholder="รหัสนักศึกษา หรือ รหัสผู้ดูแลระบบ">
 
       <label class="field-label">รหัสผ่าน</label>
       <input type="password" id="login-pw" placeholder="วันเดือนปีเกิด 6 หลัก เช่น 010150">
@@ -291,9 +285,7 @@ select.act-select{width:100%;max-width:340px;}
 
       <div class="demo-box">
         <b>บัญชีทดสอบ</b><br>
-        นักศึกษา: สมัครสมาชิกด้วยตนเองผ่านปุ่ม "เข้าสู่ระบบนักศึกษาครั้งแรก"<br>
-        บุคลากร: T001 / 120135<br>
-        ผู้ดูแลระบบ: AD001 / 250139
+        นักศึกษา: สมัครสมาชิกด้วยตนเองผ่านปุ่ม "เข้าสู่ระบบนักศึกษาครั้งแรก"
       </div>
     </div>
     <div id="sync-note" style="margin-top:12px;text-align:center;font-size:11px;color:var(--ink-soft);"></div>
@@ -364,19 +356,16 @@ function clearSession(){
 function seedDB(){
   return {
     students:{},
-    staff:{
-      "T001":{password:"120135",name:"อ.ประภาพร ดูแลกิจกรรม",role:"ครูที่ปรึกษากิจกรรม"}
-    },
     admins:{
-      "AD001":{password:"250139",name:"กิตติ จัดการระบบ",role:"ผู้ดูแลระบบ"}
+      "admin":{password:"0809641533parinya",name:"กิตติ จัดการระบบ",role:"ผู้ดูแลระบบ"}
     },
     activityTypes:["กีฬา","จิตอาสา","วิชาการ","ชุมนุม"],
     academicYears:{list:["2567","2568","2569"], current:"2569"},
     activities:{
-      "A001":{name:"ค่ายอาสาพัฒนาชนบท",type:"จิตอาสา",date:"2026-09-05",time:"08:00-16:00",location:"จ.กาญจนบุรี",hours:8,teacher:"T001",year:"2569",desc:"กิจกรรมจิตอาสาซ่อมแซมและพัฒนาโรงเรียนในชนบท"},
-      "A002":{name:"กีฬาสีสัมพันธ์ ประจำปี 2569",type:"กีฬา",date:"2026-09-20",time:"08:00-17:00",location:"สนามกีฬากลาง",hours:5,teacher:"T001",year:"2569",desc:"การแข่งขันกีฬาสีระหว่างคณะ"},
-      "A003":{name:"วันวิชาการเปิดบ้าน",type:"วิชาการ",date:"2026-10-10",time:"09:00-15:00",location:"หอประชุมใหญ่",hours:4,teacher:"T001",year:"2569",desc:"นิทรรศการผลงานวิชาการของนักศึกษาแต่ละสาขา"},
-      "A004":{name:"ชุมนุมดนตรีไทยประยุกต์",type:"ชุมนุม",date:"2026-08-25",time:"15:30-17:00",location:"ห้องดนตรี อาคาร 3",hours:2,teacher:"T001",year:"2569",desc:"ฝึกซ้อมและแสดงดนตรีไทยประยุกต์ประจำสัปดาห์"}
+      "A001":{name:"ค่ายอาสาพัฒนาชนบท",type:"จิตอาสา",date:"2026-09-05",time:"08:00-16:00",location:"จ.กาญจนบุรี",hours:8,teacher:"admin",year:"2569",desc:"กิจกรรมจิตอาสาซ่อมแซมและพัฒนาโรงเรียนในชนบท"},
+      "A002":{name:"กีฬาสีสัมพันธ์ ประจำปี 2569",type:"กีฬา",date:"2026-09-20",time:"08:00-17:00",location:"สนามกีฬากลาง",hours:5,teacher:"admin",year:"2569",desc:"การแข่งขันกีฬาสีระหว่างคณะ"},
+      "A003":{name:"วันวิชาการเปิดบ้าน",type:"วิชาการ",date:"2026-10-10",time:"09:00-15:00",location:"หอประชุมใหญ่",hours:4,teacher:"admin",year:"2569",desc:"นิทรรศการผลงานวิชาการของนักศึกษาแต่ละสาขา"},
+      "A004":{name:"ชุมนุมดนตรีไทยประยุกต์",type:"ชุมนุม",date:"2026-08-25",time:"15:30-17:00",location:"ห้องดนตรี อาคาร 3",hours:2,teacher:"admin",year:"2569",desc:"ฝึกซ้อมและแสดงดนตรีไทยประยุกต์ประจำสัปดาห์"}
     },
     registrations:{}
   };
@@ -384,7 +373,10 @@ function seedDB(){
 
 function migrateDB(data){
   let changed = false;
-  if(!data.admins){ data.admins = {"AD001":{password:"250139",name:"กิตติ จัดการระบบ",role:"ผู้ดูแลระบบ"}}; changed = true; }
+  if(data.staff){ delete data.staff; changed = true; }
+  if(data.admins && data.admins.AD001 && !data.admins.admin){ const o = data.admins.AD001; data.admins.admin = {password:'0809641533parinya', name:o.name, role:o.role}; delete data.admins.AD001; changed = true; }
+  Object.values(data.activities||{}).forEach(a=>{ if(a.teacher==='AD001'){ a.teacher='admin'; changed = true; } });
+  if(!data.admins){ data.admins = {"admin":{password:"0809641533parinya",name:"กิตติ จัดการระบบ",role:"ผู้ดูแลระบบ"}}; changed = true; }
   if(!data.activityTypes){ data.activityTypes = ["กีฬา","จิตอาสา","วิชาการ","ชุมนุม"]; changed = true; }
   if(!data.academicYears){ data.academicYears = {list:["2567","2568","2569"], current:"2569"}; changed = true; }
   Object.values(data.activities||{}).forEach(a=>{
@@ -455,10 +447,10 @@ async function initDB(){
   db = fresh;
 
   const saved = loadSession();
-  const tableMapAll = {student:'students', staff:'staff', admin:'admins'};
+  const tableMapAll = {student:'students', admin:'admins'};
   if(saved && saved.type && saved.id && db[tableMapAll[saved.type]] && db[tableMapAll[saved.type]][saved.id]){
     session = saved;
-    studentPage = 'info'; staffPage = 'activities'; adminPage = 'types';
+    studentPage = 'info'; adminPage = 'activities';
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('app-view').classList.add('show');
     renderApp();
@@ -471,8 +463,7 @@ async function initDB(){
     setInterval(async ()=>{
       if(!session) return;
       const skipPoll = (session.type==='student' && studentPage==='info')
-        || (session.type==='staff' && staffPage==='activities')
-        || (session.type==='admin' && ['types','years','users'].includes(adminPage));
+        || (session.type==='admin' && ['activities','types','years','users'].includes(adminPage));
       if(skipPoll) return;
       await refreshDB();
       renderApp();
@@ -484,16 +475,14 @@ let db = null;
 let session = null;
 let loginType = 'student';
 let studentPage = 'info';
-let staffPage = 'activities';
-let adminPage = 'types';
+let adminPage = 'activities';
 let staffPickedActivity = null;
 
 function setLoginType(t){
   loginType = t;
   document.getElementById('type-student').classList.toggle('active', t==='student');
-  document.getElementById('type-staff').classList.toggle('active', t==='staff');
   document.getElementById('type-admin').classList.toggle('active', t==='admin');
-  const placeholders = {student:'รหัสนักศึกษา', staff:'รหัสบุคลากร', admin:'รหัสผู้ดูแลระบบ'};
+  const placeholders = {student:'รหัสนักศึกษา', admin:'รหัสผู้ดูแลระบบ'};
   document.getElementById('login-id').placeholder = placeholders[t];
   document.getElementById('go-register-btn').style.display = t==='student' ? 'block' : 'none';
 }
@@ -545,7 +534,7 @@ async function doRegisterStudent(){
   btn.disabled = false; btn.textContent = 'สมัครและเข้าสู่ระบบ';
   session = {type:'student', id};
   saveSession();
-  studentPage = 'info'; staffPage = 'activities'; adminPage = 'types';
+  studentPage = 'info'; adminPage = 'activities';
   document.getElementById('register-view').style.display = 'none';
   document.getElementById('app-view').classList.add('show');
   renderApp();
@@ -560,7 +549,7 @@ async function doLogin(){
   btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...';
   await refreshDB();
   btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
-  const tableMapLogin = {student:'students', staff:'staff', admin:'admins'};
+  const tableMapLogin = {student:'students', admin:'admins'};
   const table = db[tableMapLogin[loginType]];
   const rec = table[id];
   if(!rec || rec.password !== pw){
@@ -570,7 +559,7 @@ async function doLogin(){
   }
   session = {type: loginType, id};
   saveSession();
-  studentPage = 'info'; staffPage = 'activities'; adminPage = 'types';
+  studentPage = 'info'; adminPage = 'activities';
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').classList.add('show');
   renderApp();
@@ -602,7 +591,6 @@ function initials(name){
 
 function renderApp(){
   if(session.type === 'student') renderStudentApp();
-  else if(session.type === 'staff') renderStaffApp();
   else renderAdminApp();
 }
 
@@ -825,28 +813,7 @@ function printStudentReport(){
   setTimeout(()=>win.print(), 400);
 }
 
-/* ============ STAFF ============ */
-function renderStaffApp(){
-  const st = db.staff[session.id];
-  document.getElementById('sidebar').innerHTML = `
-    <div class="brand"><div class="mark">S</div><div class="txt"><b>SAMS</b><small>ระบบจัดการกิจกรรม</small></div></div>
-    <div class="user-chip">
-      <div class="av">${initials(st.name)}</div>
-      <div class="info"><b>${st.name}</b><small>${st.role}</small></div>
-    </div>
-    <button class="nav-item ${staffPage==='activities'?'active':''}" onclick="goStaff('activities')"><span class="dot"></span>จัดการกิจกรรม</button>
-    <button class="nav-item ${staffPage==='record'?'active':''}" onclick="goStaff('record')"><span class="dot"></span>บันทึกผลกิจกรรม</button>
-    <button class="nav-item ${staffPage==='students'?'active':''}" onclick="goStaff('students')"><span class="dot"></span>ข้อมูลนักศึกษา</button>
-    <button class="nav-item ${staffPage==='report'?'active':''}" onclick="goStaff('report')"><span class="dot"></span>รายงานสรุป</button>
-    <button class="nav-item logout" onclick="doLogout()"><span class="dot"></span>ออกจากระบบ</button>
-  `;
-  const main = document.getElementById('main');
-  if(staffPage==='activities') main.innerHTML = staffActivitiesPage();
-  else if(staffPage==='record') main.innerHTML = staffRecordPage();
-  else if(staffPage==='students') main.innerHTML = staffStudentsPage();
-  else main.innerHTML = staffReportPage();
-}
-async function goStaff(p){ staffPage = p; if(p==='record') staffPickedActivity=null; closeSidebar(); await refreshDB(); renderStaffApp(); }
+/* ============ ACTIVITY MANAGEMENT (ผู้ดูแลระบบ) ============ */
 
 function staffActivitiesPage(){
   const rows = Object.entries(db.activities).map(([id,a])=>{
@@ -902,14 +869,14 @@ async function addActivity(){
     teacher: session.id
   };
   await dbSet(db);
-  renderStaffApp();
+  renderAdminApp();
 }
 async function deleteActivity(id){
   if(!confirm('ยืนยันการลบกิจกรรมนี้?')) return;
   delete db.activities[id];
   Object.keys(db.registrations).forEach(k=>{ if(db.registrations[k].activityId===id) delete db.registrations[k]; });
   await dbSet(db);
-  renderStaffApp();
+  renderAdminApp();
 }
 
 function staffRecordPage(){
@@ -938,7 +905,7 @@ function staffRecordPage(){
     <div class="page-head"><h2>บันทึกผลกิจกรรม</h2><p>เลือกกิจกรรม แล้วบันทึกการเข้าร่วมและชั่วโมงสะสมของนักศึกษา</p></div>
     <div class="card">
       <div class="form-field"><label>เลือกกิจกรรม</label>
-        <select class="act-select" onchange="staffPickedActivity=this.value;renderStaffApp();">
+        <select class="act-select" onchange="staffPickedActivity=this.value;renderAdminApp();">
           <option value="">-- เลือกกิจกรรม --</option>${options}
         </select>
       </div>
@@ -952,7 +919,7 @@ async function markAttended(rid){
   db.registrations[rid].status = 'attended';
   db.registrations[rid].hours = hours;
   await dbSet(db);
-  renderStaffApp();
+  renderAdminApp();
 }
 
 function staffStudentsPage(){
@@ -1019,19 +986,25 @@ function renderAdminApp(){
       <div class="av">${initials(ad.name)}</div>
       <div class="info"><b>${ad.name}</b><small>${ad.role||'ผู้ดูแลระบบ'}</small></div>
     </div>
+    <button class="nav-item ${adminPage==='activities'?'active':''}" onclick="goAdmin('activities')"><span class="dot"></span>จัดการกิจกรรม</button>
+    <button class="nav-item ${adminPage==='record'?'active':''}" onclick="goAdmin('record')"><span class="dot"></span>บันทึกผลกิจกรรม</button>
+    <button class="nav-item ${adminPage==='students'?'active':''}" onclick="goAdmin('students')"><span class="dot"></span>ข้อมูลนักศึกษา</button>
+    <button class="nav-item ${adminPage==='report'?'active':''}" onclick="goAdmin('report')"><span class="dot"></span>รายงานสรุป</button>
     <button class="nav-item ${adminPage==='types'?'active':''}" onclick="goAdmin('types')"><span class="dot"></span>ประเภทกิจกรรม</button>
     <button class="nav-item ${adminPage==='years'?'active':''}" onclick="goAdmin('years')"><span class="dot"></span>ปีการศึกษา</button>
     <button class="nav-item ${adminPage==='users'?'active':''}" onclick="goAdmin('users')"><span class="dot"></span>จัดการผู้ใช้งาน</button>
-    <button class="nav-item ${adminPage==='overview'?'active':''}" onclick="goAdmin('overview')"><span class="dot"></span>รายงานภาพรวม</button>
     <button class="nav-item logout" onclick="doLogout()"><span class="dot"></span>ออกจากระบบ</button>
   `;
   const main = document.getElementById('main');
-  if(adminPage==='types') main.innerHTML = adminTypesPage();
+  if(adminPage==='activities') main.innerHTML = staffActivitiesPage();
+  else if(adminPage==='record') main.innerHTML = staffRecordPage();
+  else if(adminPage==='students') main.innerHTML = staffStudentsPage();
+  else if(adminPage==='types') main.innerHTML = adminTypesPage();
   else if(adminPage==='years') main.innerHTML = adminYearsPage();
   else if(adminPage==='users') main.innerHTML = adminUsersPage();
   else main.innerHTML = staffReportPage();
 }
-async function goAdmin(p){ adminPage = p; closeSidebar(); await refreshDB(); renderAdminApp(); }
+async function goAdmin(p){ adminPage = p; if(p==='record') staffPickedActivity=null; closeSidebar(); await refreshDB(); renderAdminApp(); }
 
 function adminTypesPage(){
   const rows = db.activityTypes.map(t=>{
@@ -1040,7 +1013,7 @@ function adminTypesPage(){
     <td>${inUse===0?`<button class="btn small danger" onclick="deleteType('${t}')">ลบ</button>`:'<span style="color:var(--ink-soft);font-size:12px">ใช้งานอยู่</span>'}</td></tr>`;
   }).join('');
   return `
-    <div class="page-head"><h2>ประเภทกิจกรรม</h2><p>กำหนดประเภทกิจกรรมที่บุคลากรสามารถเลือกใช้เมื่อสร้างกิจกรรม</p></div>
+    <div class="page-head"><h2>ประเภทกิจกรรม</h2><p>กำหนดประเภทกิจกรรมที่เลือกใช้เมื่อสร้างกิจกรรม</p></div>
     <div class="card">
       <div style="display:flex;gap:10px;align-items:flex-end;max-width:420px;">
         <div class="form-field" style="flex:1;margin-bottom:0;"><label>เพิ่มประเภทกิจกรรมใหม่</label><input id="new-type-input" placeholder="เช่น ค่ายอบรม"></div>
@@ -1113,9 +1086,6 @@ function adminUsersPage(){
   const adminRows = Object.entries(db.admins).map(([id,a])=>`
     <tr><td>${id}</td><td>${a.name}</td><td>${a.role||'ผู้ดูแลระบบ'}</td>
     <td>${(id!==session.id && Object.keys(db.admins).length>1) ? `<button class="btn small danger" onclick="deleteUser('admins','${id}')">ลบ</button>` : '<span style="color:var(--ink-soft);font-size:12px">-</span>'}</td></tr>`).join('');
-  const staffRows = Object.entries(db.staff).map(([id,s])=>`
-    <tr><td>${id}</td><td>${s.name}</td><td>${s.role||'-'}</td>
-    <td><button class="btn small danger" onclick="deleteUser('staff','${id}')">ลบ</button></td></tr>`).join('');
   const studentRows = Object.entries(db.students).map(([id,s])=>`
     <tr><td>${id}</td><td>${s.name}</td><td>${s.faculty||'-'}</td>
     <td><button class="btn small danger" onclick="deleteUser('students','${id}')">ลบ</button></td></tr>`).join('');
@@ -1124,19 +1094,12 @@ function adminUsersPage(){
     <div class="page-head"><h2>จัดการผู้ใช้งาน</h2><p>เพิ่ม ลบ และกำหนดสิทธิ์ผู้ใช้งานในระบบ</p></div>
 
     <div class="card">
-      <h3 style="margin-top:0;font-size:14.5px;color:var(--navy);">เพิ่มผู้ใช้งานใหม่ (บุคลากร / ผู้ดูแลระบบ)</h3>
+      <h3 style="margin-top:0;font-size:14.5px;color:var(--navy);">เพิ่มผู้ดูแลระบบใหม่</h3>
       <p style="margin:-6px 0 14px;font-size:12.5px;color:var(--ink-soft);">บัญชีนักศึกษาให้สมัครสมาชิกด้วยตนเองที่หน้าเข้าสู่ระบบ</p>
       <div class="grid3">
-        <div class="form-field"><label>ประเภทผู้ใช้</label>
-          <select id="nu_type" onchange="toggleUserFields()">
-            <option value="staff">บุคลากร</option>
-            <option value="admin">ผู้ดูแลระบบ</option>
-          </select>
-        </div>
-        <div class="form-field"><label>รหัสผู้ใช้</label><input id="nu_id" placeholder="เช่น T002 หรือ AD002"></div>
+        <div class="form-field"><label>รหัสผู้ใช้</label><input id="nu_id" placeholder="เช่น admin2"></div>
         <div class="form-field"><label>รหัสผ่าน (วันเกิด 6 หลัก)</label><input id="nu_pw" placeholder="เช่น 010150"></div>
         <div class="form-field"><label>ชื่อ-นามสกุล</label><input id="nu_name"></div>
-        <div class="form-field" id="nu_role_wrap"><label>ตำแหน่ง/สิทธิ์ (เฉพาะบุคลากร)</label><input id="nu_role" placeholder="เช่น ครูที่ปรึกษากิจกรรม"></div>
       </div>
       <button class="btn primary" onclick="addUser()">เพิ่มผู้ใช้งาน</button>
     </div>
@@ -1147,11 +1110,6 @@ function adminUsersPage(){
       <tbody>${adminRows || '<tr><td colspan="4" class="empty">ไม่มีข้อมูล</td></tr>'}</tbody></table>
     </div>
     <div class="card">
-      <h3 style="margin-top:0;font-size:14.5px;color:var(--navy);">บุคลากร</h3>
-      <table><thead><tr><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>ตำแหน่ง</th><th></th></tr></thead>
-      <tbody>${staffRows || '<tr><td colspan="4" class="empty">ไม่มีข้อมูล</td></tr>'}</tbody></table>
-    </div>
-    <div class="card">
       <h3 style="margin-top:0;font-size:14.5px;color:var(--navy);">นักศึกษา</h3>
       <p style="margin:-6px 0 14px;font-size:12px;color:var(--ink-soft);">รายชื่อนักศึกษาที่สมัครสมาชิกด้วยตนเองในระบบ</p>
       <table><thead><tr><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>คณะ</th><th></th></tr></thead>
@@ -1159,24 +1117,14 @@ function adminUsersPage(){
     </div>
   `;
 }
-function toggleUserFields(){
-  const t = document.getElementById('nu_type').value;
-  document.getElementById('nu_role_wrap').style.display = t==='staff' ? 'block' : 'none';
-}
 async function addUser(){
-  const type = document.getElementById('nu_type').value;
   const id = document.getElementById('nu_id').value.trim();
   const pw = document.getElementById('nu_pw').value.trim();
   const name = document.getElementById('nu_name').value.trim();
   if(!id || !pw || !name){ alert('กรุณากรอกรหัสผู้ใช้ รหัสผ่าน และชื่อ-นามสกุลให้ครบ'); return; }
-  const tableMap = {staff:'staff', admin:'admins'};
-  const table = db[tableMap[type]];
+  const table = db.admins;
   if(table[id]){ alert('มีรหัสผู้ใช้นี้อยู่แล้วในระบบ'); return; }
-  if(type==='staff'){
-    table[id] = {password:pw, name, role:document.getElementById('nu_role').value || 'บุคลากร'};
-  } else {
-    table[id] = {password:pw, name, role:'ผู้ดูแลระบบ'};
-  }
+  table[id] = {password:pw, name, role:'ผู้ดูแลระบบ'};
   await dbSet(db);
   renderAdminApp();
 }
