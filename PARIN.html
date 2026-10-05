@@ -1152,18 +1152,7 @@ function adminUsersPage(){
     <td style="white-space:nowrap"><button class="btn small" onclick="setUserPassword('${s._id}')">ตั้งรหัสผ่านใหม่</button> <button class="btn small danger" onclick="deleteUser('${s._id}','students')">ลบ</button></td></tr>`).join('');
 
   return `
-    <div class="page-head"><h2>จัดการผู้ใช้งาน</h2><p>เพิ่ม ลบ และกำหนดสิทธิ์ผู้ใช้งานในระบบ</p></div>
-
-    <div class="card">
-      <h3 style="margin-top:0;font-size:14.5px;color:var(--navy);">เพิ่มผู้ดูแลระบบใหม่</h3>
-      <p style="margin:-6px 0 14px;font-size:12.5px;color:var(--ink-soft);">บัญชีนักศึกษาให้สมัครสมาชิกด้วยตนเองที่หน้าเข้าสู่ระบบ</p>
-      <div class="grid3">
-        <div class="form-field"><label>รหัสผู้ใช้</label><input id="nu_id" placeholder="เช่น admin2"></div>
-        <div class="form-field"><label>รหัสผ่าน (วันเกิด 6 หลัก)</label><input id="nu_pw" placeholder="เช่น 010150"></div>
-        <div class="form-field"><label>ชื่อ-นามสกุล</label><input id="nu_name"></div>
-      </div>
-      <button class="btn primary" onclick="addUser()">เพิ่มผู้ใช้งาน</button>
-    </div>
+    <div class="page-head"><h2>จัดการผู้ใช้งาน</h2><p>ตั้งรหัสผ่านใหม่และลบผู้ใช้งานในระบบ</p></div>
 
     <div class="card">
       <h3 style="margin-top:0;font-size:14.5px;color:var(--navy);">ผู้ดูแลระบบ</h3>
@@ -1188,22 +1177,6 @@ async function callAdminUsers(body){
   return { data };
 }
 
-async function addUser(){
-  const id = document.getElementById('nu_id').value.trim();
-  const pw = document.getElementById('nu_pw').value;
-  const name = document.getElementById('nu_name').value.trim();
-  if(!id || !pw || !name){ alert('กรุณากรอกรหัสผู้ใช้ รหัสผ่าน และชื่อ-นามสกุลให้ครบ'); return; }
-  if(!CODE_RE.test(id)){ alert('รหัสผู้ใช้ใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง (2-40 ตัว)'); return; }
-  if(pw.length < 6){ alert('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'); return; }
-  const { error } = await callAdminUsers({ action:'create_admin', user_code:id, password:pw, full_name:name });
-  if(error){
-    const msgs = { user_exists:'มีรหัสผู้ใช้นี้อยู่แล้วในระบบ', invalid_user_code:'รหัสผู้ใช้ไม่ถูกต้อง', password_too_short:'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', forbidden:'ไม่มีสิทธิ์ดำเนินการ' };
-    alert(msgs[error] || ('เพิ่มผู้ใช้ไม่สำเร็จ: ' + error));
-    return;
-  }
-  await refreshDB();
-  renderAdminApp();
-}
 async function setUserPassword(uid){
   const cur = Object.entries({...db.students, ...db.admins}).find(([,u])=>u._id===uid);
   if(!cur) return;
