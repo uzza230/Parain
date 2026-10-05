@@ -462,7 +462,7 @@ function startPolling(){
   pollTimer = setInterval(async ()=>{
     if(!session || polling || document.hidden) return;
     const skipPoll = (session.type==='student' && studentPage==='info')
-      || (session.type==='admin' && ['activities','years','users'].includes(adminPage));
+      || (session.type==='admin' && ['activities','types','years','users'].includes(adminPage));
     if(skipPoll) return;
     polling = true;
     try{
@@ -1044,6 +1044,7 @@ function renderAdminApp(){
     <button class="nav-item ${adminPage==='record'?'active':''}" onclick="goAdmin('record')"><span class="dot"></span>บันทึกผลกิจกรรม</button>
     <button class="nav-item ${adminPage==='students'?'active':''}" onclick="goAdmin('students')"><span class="dot"></span>ข้อมูลนักศึกษา</button>
     <button class="nav-item ${adminPage==='report'?'active':''}" onclick="goAdmin('report')"><span class="dot"></span>รายงานสรุป</button>
+    ${isAdmin ? `<button class="nav-item ${adminPage==='types'?'active':''}" onclick="goAdmin('types')"><span class="dot"></span>ประเภทกิจกรรม</button>` : ''}
     ${isAdmin ? `<button class="nav-item ${adminPage==='years'?'active':''}" onclick="goAdmin('years')"><span class="dot"></span>ปีการศึกษา</button>` : ''}
     ${isAdmin ? `<button class="nav-item ${adminPage==='users'?'active':''}" onclick="goAdmin('users')"><span class="dot"></span>จัดการผู้ใช้งาน</button>` : ''}
     <button class="nav-item logout" onclick="doLogout()"><span class="dot"></span>ออกจากระบบ</button>
@@ -1052,11 +1053,48 @@ function renderAdminApp(){
   if(adminPage==='activities') main.innerHTML = staffActivitiesPage();
   else if(adminPage==='record') main.innerHTML = staffRecordPage();
   else if(adminPage==='students') main.innerHTML = staffStudentsPage();
+  else if(adminPage==='types' && isAdmin) main.innerHTML = adminTypesPage();
   else if(adminPage==='years' && isAdmin) main.innerHTML = adminYearsPage();
   else if(adminPage==='users' && isAdmin) main.innerHTML = adminUsersPage();
   else main.innerHTML = staffReportPage();
 }
 async function goAdmin(p){ adminPage = p; if(p==='record') staffPickedActivity=null; closeSidebar(); await refreshDB(); renderAdminApp(); }
+
+function adminTypesPage(){
+  const rows = db.activityTypes.map(t=>{
+    const inUse = Object.values(db.activities).filter(a=>a.type===t).length;
+    return `<tr><td>${renderTag(t)}</td><td>${inUse} กิจกรรม</td>
+    <td>${inUse===0?`<button class="btn small danger" onclick="deleteType('${typeIdByName[t]}')">ลบ</button>`:'<span style="color:var(--ink-soft);font-size:12px">ใช้งานอยู่</span>'}</td></tr>`;
+  }).join('');
+  return `
+    <div class="page-head"><h2>ประเภทกิจกรรม</h2><p>กำหนดประเภทกิจกรรมที่เลือกใช้เมื่อสร้างกิจกรรม</p></div>
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-end;max-width:420px;">
+        <div class="form-field" style="flex:1;margin-bottom:0;"><label>เพิ่มประเภทกิจกรรมใหม่</label><input id="new-type-input" placeholder="เช่น ค่ายอบรม"></div>
+        <button class="btn primary" onclick="addType()" style="height:38px;">เพิ่ม</button>
+      </div>
+    </div>
+    <div class="card"><table><thead><tr><th>ประเภท</th><th>จำนวนกิจกรรมที่ใช้</th><th></th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="3" class="empty">ยังไม่มีประเภทกิจกรรม</td></tr>'}</tbody></table></div>
+  `;
+}
+async function addType(){
+  const input = document.getElementById('new-type-input');
+  const val = input.value.trim();
+  if(!val){ alert('กรุณากรอกชื่อประเภทกิจกรรม'); return; }
+  if(db.activityTypes.includes(val)){ alert('มีประเภทนี้อยู่แล้ว'); return; }
+  const { error } = await sb.from('activity_types').insert({ name: val });
+  if(error){ alert(error.code==='23505' ? 'มีประเภทนี้อยู่แล้ว' : 'เพิ่มประเภทไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
+  renderAdminApp();
+}
+async function deleteType(id){
+  if(!confirm('ยืนยันการลบประเภทกิจกรรมนี้?')) return;
+  const { error } = await sb.from('activity_types').delete().eq('id', id);
+  if(error){ alert('ลบประเภทไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
+  renderAdminApp();
+}
 
 function adminYearsPage(){
   const rows = db.academicYears.list.map(y=>{
