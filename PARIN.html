@@ -1146,10 +1146,10 @@ async function deleteYear(yid){
 function adminUsersPage(){
   const adminRows = Object.entries(db.admins).map(([id,a])=>`
     <tr><td>${esc(id)}</td><td>${esc(a.name)}</td><td>${esc(a.role||'ผู้ดูแลระบบ')}</td>
-    <td>${(id!==session.id && Object.keys(db.admins).length>1) ? `<button class="btn small danger" onclick="deleteUser('${a._id}','admins')">ลบ</button>` : '<span style="color:var(--ink-soft);font-size:12px">-</span>'}</td></tr>`).join('');
+    <td style="white-space:nowrap"><button class="btn small" onclick="editUserCode('${a._id}')">แก้ไขรหัส</button> ${(id!==session.id && Object.keys(db.admins).length>1) ? `<button class="btn small danger" onclick="deleteUser('${a._id}','admins')">ลบ</button>` : ''}</td></tr>`).join('');
   const studentRows = Object.entries(db.students).map(([id,s])=>`
     <tr><td>${esc(id)}</td><td>${esc(s.name)}</td><td>${esc(s.faculty||'-')}</td>
-    <td><button class="btn small danger" onclick="deleteUser('${s._id}','students')">ลบ</button></td></tr>`).join('');
+    <td style="white-space:nowrap"><button class="btn small" onclick="editUserCode('${s._id}')">แก้ไขรหัส</button> <button class="btn small danger" onclick="deleteUser('${s._id}','students')">ลบ</button></td></tr>`).join('');
 
   return `
     <div class="page-head"><h2>จัดการผู้ใช้งาน</h2><p>เพิ่ม ลบ และกำหนดสิทธิ์ผู้ใช้งานในระบบ</p></div>
@@ -1201,6 +1201,26 @@ async function addUser(){
     alert(msgs[error] || ('เพิ่มผู้ใช้ไม่สำเร็จ: ' + error));
     return;
   }
+  await refreshDB();
+  renderAdminApp();
+}
+async function editUserCode(uid){
+  const cur = Object.entries({...db.students, ...db.admins}).find(([,u])=>u._id===uid);
+  if(!cur) return;
+  const oldCode = cur[0];
+  const input = prompt('รหัสผู้ใช้/รหัสนักศึกษาปัจจุบัน: ' + oldCode + '\nกรอกรหัสใหม่ (ตัวอักษรอังกฤษ ตัวเลข . - _ ความยาว 2-40 ตัว)', oldCode);
+  if(input === null) return;
+  const newCode = input.trim();
+  if(newCode === oldCode) return;
+  if(!CODE_RE.test(newCode)){ alert('รหัสใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง (2-40 ตัว)'); return; }
+  if(!confirm('เปลี่ยนรหัสจาก ' + oldCode + ' เป็น ' + newCode + ' ?\nผู้ใช้ต้องใช้รหัสใหม่ในการเข้าสู่ระบบครั้งต่อไป (รหัสผ่านเดิมยังใช้ได้)')) return;
+  const { error } = await callAdminUsers({ action:'update_user_code', user_id:uid, user_code:newCode });
+  if(error){
+    const msgs = { user_exists:'มีรหัสนี้อยู่ในระบบแล้ว', invalid_user_code:'รหัสไม่ถูกต้อง', not_found:'ไม่พบผู้ใช้งานนี้', forbidden:'ไม่มีสิทธิ์ดำเนินการ' };
+    alert(msgs[error] || ('เปลี่ยนรหัสไม่สำเร็จ: ' + error));
+    return;
+  }
+  if(uid === session.uid) session.id = newCode;
   await refreshDB();
   renderAdminApp();
 }
