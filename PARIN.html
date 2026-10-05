@@ -311,7 +311,7 @@ select.act-select{width:100%;max-width:340px;}
     <input type="text" id="reg-faculty" placeholder="เช่น คณะวิทยาศาสตร์">
 
     <label class="field-label">ตั้งรหัสผ่าน</label>
-    <input type="password" id="reg-pw" placeholder="อย่างน้อย 4 ตัวอักษร">
+    <input type="password" id="reg-pw" placeholder="อย่างน้อย 6 ตัวอักษร">
 
     <label class="field-label">ยืนยันรหัสผ่าน</label>
     <input type="password" id="reg-pw2" placeholder="กรอกรหัสผ่านอีกครั้ง">
@@ -336,53 +336,18 @@ select.act-select{width:100%;max-width:340px;}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const DB_KEY = 'sams_db_v1';
-const SESSION_KEY = 'sams_session_v1';
+/* ============ SUPABASE ============ */
+const SUPABASE_URL = 'https://vvyogjfvzyssvxddmsdg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_cfvZK3oixPv0jSwwDfnymw_2VLC3qUD'; // publishable key: safe for the browser, access is enforced by RLS
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const EMAIL_DOMAIN = '@sams.local';
+const CODE_RE = /^[A-Za-z0-9._-]{2,40}$/;
+function emailFor(code){ return String(code).toLowerCase() + EMAIL_DOMAIN; }
 
-function saveSession(){
-  try{ localStorage.setItem(SESSION_KEY, JSON.stringify(session)); }catch(e){}
-}
-function loadSession(){
-  try{
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  }catch(e){ return null; }
-}
-function clearSession(){
-  try{ localStorage.removeItem(SESSION_KEY); }catch(e){}
-}
-
-function seedDB(){
-  return {
-    students:{},
-    admins:{
-      "admin":{password:"0809641533parinya",name:"กิตติ จัดการระบบ",role:"ผู้ดูแลระบบ"}
-    },
-    activityTypes:["กีฬา","จิตอาสา","วิชาการ","ชุมนุม"],
-    academicYears:{list:["2567","2568","2569"], current:"2569"},
-    activities:{
-      "A001":{name:"ค่ายอาสาพัฒนาชนบท",type:"จิตอาสา",date:"2026-09-05",time:"08:00-16:00",location:"จ.กาญจนบุรี",hours:8,teacher:"admin",year:"2569",desc:"กิจกรรมจิตอาสาซ่อมแซมและพัฒนาโรงเรียนในชนบท"},
-      "A002":{name:"กีฬาสีสัมพันธ์ ประจำปี 2569",type:"กีฬา",date:"2026-09-20",time:"08:00-17:00",location:"สนามกีฬากลาง",hours:5,teacher:"admin",year:"2569",desc:"การแข่งขันกีฬาสีระหว่างคณะ"},
-      "A003":{name:"วันวิชาการเปิดบ้าน",type:"วิชาการ",date:"2026-10-10",time:"09:00-15:00",location:"หอประชุมใหญ่",hours:4,teacher:"admin",year:"2569",desc:"นิทรรศการผลงานวิชาการของนักศึกษาแต่ละสาขา"},
-      "A004":{name:"ชุมนุมดนตรีไทยประยุกต์",type:"ชุมนุม",date:"2026-08-25",time:"15:30-17:00",location:"ห้องดนตรี อาคาร 3",hours:2,teacher:"admin",year:"2569",desc:"ฝึกซ้อมและแสดงดนตรีไทยประยุกต์ประจำสัปดาห์"}
-    },
-    registrations:{}
-  };
-}
-
-function migrateDB(data){
-  let changed = false;
-  if(data.staff){ delete data.staff; changed = true; }
-  if(data.admins && data.admins.AD001 && !data.admins.admin){ const o = data.admins.AD001; data.admins.admin = {password:'0809641533parinya', name:o.name, role:o.role}; delete data.admins.AD001; changed = true; }
-  Object.values(data.activities||{}).forEach(a=>{ if(a.teacher==='AD001'){ a.teacher='admin'; changed = true; } });
-  if(!data.admins){ data.admins = {"admin":{password:"0809641533parinya",name:"กิตติ จัดการระบบ",role:"ผู้ดูแลระบบ"}}; changed = true; }
-  if(!data.activityTypes){ data.activityTypes = ["กีฬา","จิตอาสา","วิชาการ","ชุมนุม"]; changed = true; }
-  if(!data.academicYears){ data.academicYears = {list:["2567","2568","2569"], current:"2569"}; changed = true; }
-  Object.values(data.activities||{}).forEach(a=>{
-    if(!a.year){ a.year = data.academicYears.current; changed = true; }
-  });
-  return {data, changed};
+function esc(v){
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 const TAG_PALETTE = [
@@ -401,82 +366,161 @@ function typeColor(type){
 }
 function renderTag(type){
   const c = typeColor(type);
-  return `<span class="tag" style="background:${c.bg};color:${c.text}">${type||'-'}</span>`;
+  return `<span class="tag" style="background:${c.bg};color:${c.text}">${esc(type||'-')}</span>`;
 }
 
-const hasCloudStorage = (typeof window.storage !== 'undefined');
-
-async function dbGet(){
-  if(hasCloudStorage){
-    try{
-      const r = await window.storage.get('sams_db', true);
-      return r ? JSON.parse(r.value) : null;
-    }catch(e){ return null; }
-  }
-  try{
-    const raw = localStorage.getItem(DB_KEY);
-    return raw ? JSON.parse(raw) : null;
-  }catch(e){ return null; }
-}
-async function dbSet(data){
-  if(hasCloudStorage){
-    try{ await window.storage.set('sams_db', JSON.stringify(data), true); }
-    catch(e){ console.error('storage set failed', e); }
-    return;
-  }
-  localStorage.setItem(DB_KEY, JSON.stringify(data));
-}
-async function refreshDB(){
-  const fresh = await dbGet();
-  if(fresh){
-    const patched = migrateDB(fresh);
-    db = patched.data;
-    if(patched.changed) await dbSet(patched.data);
-  }
-}
-async function initDB(){
-  let fresh = await dbGet();
-  if(!fresh){
-    fresh = seedDB();
-    await dbSet(fresh);
-  } else {
-    const patched = migrateDB(fresh);
-    fresh = patched.data;
-    if(patched.changed) await dbSet(fresh);
-  }
-  db = fresh;
-
-  const saved = loadSession();
-  const tableMapAll = {student:'students', admin:'admins'};
-  if(saved && saved.type && saved.id && db[tableMapAll[saved.type]] && db[tableMapAll[saved.type]][saved.id]){
-    session = saved;
-    studentPage = 'info'; adminPage = 'activities';
-    document.getElementById('login-view').style.display = 'none';
-    document.getElementById('app-view').classList.add('show');
-    renderApp();
-  } else {
-    if(saved) clearSession();
-    document.getElementById('login-loading').style.display = 'none';
-    document.getElementById('login-form-area').style.display = 'block';
-  }
-  if(hasCloudStorage){
-    setInterval(async ()=>{
-      if(!session) return;
-      const skipPoll = (session.type==='student' && studentPage==='info')
-        || (session.type==='admin' && ['activities','types','years','users'].includes(adminPage));
-      if(skipPoll) return;
-      await refreshDB();
-      renderApp();
-    }, 5000);
-  }
-}
-
-let db = null;
-let session = null;
+/* ============ STATE ============ */
+let db = emptyDB();
+let session = null;   // {type:'student'|'admin', id:user_code, uid:uuid, appRole:'student'|'staff'|'admin'}
 let loginType = 'student';
 let studentPage = 'info';
 let adminPage = 'activities';
 let staffPickedActivity = null;
+let typeIdByName = {}, yearIdByName = {};
+
+function emptyDB(){
+  return {students:{}, admins:{}, activityTypes:[], academicYears:{list:[], current:null}, activities:{}, registrations:{}};
+}
+
+/* ============ DATA LAYER (Supabase -> in-memory cache shaped like the old JSON) ============ */
+async function fetchAll(makeQuery){
+  const out = [];
+  const size = 1000;
+  for(let from = 0; ; from += size){
+    const { data, error } = await makeQuery().range(from, from + size - 1);
+    if(error) throw error;
+    out.push(...data);
+    if(data.length < size) break;
+  }
+  return out;
+}
+
+function mapProfile(p){
+  return {
+    _id:p.id, appRole:p.role,
+    name:p.full_name||'', faculty:p.faculty||'', major:p.major||'', year:p.class_year||'',
+    section:p.section||'', curriculum:p.curriculum||'', admit:p.admit_term||'', dob:p.dob||'',
+    address:p.address||'', phone:p.phone||'', email:p.contact_email||'', facebook:p.facebook||'',
+    line:p.line_id||'', other:p.other_contact||'',
+    role:p.staff_position||'ผู้ดูแลระบบ'
+  };
+}
+
+async function refreshDB(){
+  if(!sb) return false;
+  try{
+    const [profs, types, years, acts, regs] = await Promise.all([
+      fetchAll(()=>sb.from('profiles').select('*').order('created_at').order('id')),
+      fetchAll(()=>sb.from('activity_types').select('id,name').order('created_at').order('id')),
+      fetchAll(()=>sb.from('academic_years').select('id,year,is_current').order('year')),
+      fetchAll(()=>sb.from('activities').select('*').order('created_at').order('id')),
+      fetchAll(()=>sb.from('registrations').select('*').order('registered_at').order('id'))
+    ]);
+    const next = emptyDB();
+    const codeById = {};
+    profs.forEach(p=>{
+      codeById[p.id] = p.user_code;
+      (p.role==='student' ? next.students : next.admins)[p.user_code] = mapProfile(p);
+    });
+    const typeNameById = {}, yearNameById = {};
+    typeIdByName = {}; yearIdByName = {};
+    types.forEach(t=>{ typeNameById[t.id] = t.name; typeIdByName[t.name] = t.id; next.activityTypes.push(t.name); });
+    years.forEach(y=>{
+      yearNameById[y.id] = y.year; yearIdByName[y.year] = y.id; next.academicYears.list.push(y.year);
+      if(y.is_current) next.academicYears.current = y.year;
+    });
+    acts.forEach(a=>{
+      next.activities[a.id] = {
+        name:a.name, type:typeNameById[a.type_id]||'-', year:yearNameById[a.academic_year_id]||'-',
+        date:a.activity_date||'-', time:a.time_range||'-', location:a.location||'-',
+        hours:Number(a.hours)||0, desc:a.description||'', teacher:codeById[a.created_by]||''
+      };
+    });
+    regs.forEach(r=>{
+      next.registrations[r.id] = {
+        activityId:r.activity_id, studentId:codeById[r.student_id]||r.student_id, studentUuid:r.student_id,
+        status:r.status, hours:Number(r.hours)||0, date:(r.registered_at||'').slice(0,10)
+      };
+    });
+    db = next;
+    return true;
+  }catch(e){
+    console.error('refreshDB failed', e);
+    return false;
+  }
+}
+
+async function fetchProfile(uid){
+  const { data, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+  return error ? null : data;
+}
+
+/* ============ SESSION ============ */
+let pollTimer = null, polling = false;
+function startPolling(){
+  stopPolling();
+  pollTimer = setInterval(async ()=>{
+    if(!session || polling || document.hidden) return;
+    const skipPoll = (session.type==='student' && studentPage==='info')
+      || (session.type==='admin' && ['activities','types','years','users'].includes(adminPage));
+    if(skipPoll) return;
+    polling = true;
+    try{
+      const ok = await refreshDB();
+      if(ok && session) renderApp();
+    } finally { polling = false; }
+  }, 10000);
+}
+function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
+
+async function startSession(p){
+  session = {type: p.role==='student' ? 'student' : 'admin', id:p.user_code, uid:p.id, appRole:p.role};
+  studentPage = 'info'; adminPage = 'activities'; staffPickedActivity = null;
+  await refreshDB();
+  const table = session.type==='student' ? db.students : db.admins;
+  if(!table[p.user_code]) table[p.user_code] = mapProfile(p);
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('register-view').style.display = 'none';
+  document.getElementById('app-view').classList.add('show');
+  renderApp();
+  startPolling();
+}
+
+function showLoginForm(){
+  document.getElementById('login-loading').style.display = 'none';
+  document.getElementById('login-form-area').style.display = 'block';
+}
+
+function resetToLogin(){
+  stopPolling();
+  session = null;
+  db = emptyDB();
+  document.getElementById('app-view').classList.remove('show');
+  document.getElementById('register-view').style.display = 'none';
+  document.getElementById('login-view').style.display = 'flex';
+  document.getElementById('login-id').value = '';
+  document.getElementById('login-pw').value = '';
+  showLoginForm();
+}
+
+async function initDB(){
+  if(!sb){
+    document.getElementById('login-loading').textContent = 'โหลดระบบฐานข้อมูลไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้านี้';
+    return;
+  }
+  sb.auth.onAuthStateChange((event)=>{
+    if(event==='SIGNED_OUT' && session) resetToLogin();
+  });
+  try{
+    const { data:{ session:s } } = await sb.auth.getSession();
+    if(s){
+      const p = await fetchProfile(s.user.id);
+      if(p){ await startSession(p); return; }
+      await sb.auth.signOut();
+    }
+  }catch(e){ console.error(e); }
+  showLoginForm();
+}
 
 function setLoginType(t){
   loginType = t;
@@ -497,72 +541,68 @@ function showLoginView(){
   document.getElementById('register-view').style.display = 'none';
   document.getElementById('login-view').style.display = 'flex';
 }
+
 async function doRegisterStudent(){
   const btn = document.getElementById('register-btn');
   const id = document.getElementById('reg-id').value.trim();
   const name = document.getElementById('reg-name').value.trim();
   const faculty = document.getElementById('reg-faculty').value.trim();
-  const pw = document.getElementById('reg-pw').value.trim();
-  const pw2 = document.getElementById('reg-pw2').value.trim();
+  const pw = document.getElementById('reg-pw').value;
+  const pw2 = document.getElementById('reg-pw2').value;
   const errBox = document.getElementById('register-error');
+  const fail = (msg)=>{ errBox.textContent = msg; errBox.style.display = 'block'; btn.disabled = false; btn.textContent = 'สมัครและเข้าสู่ระบบ'; };
   errBox.style.display = 'none';
-  if(!id || !name || !pw || !pw2){
-    errBox.textContent = 'กรุณากรอกรหัสนักศึกษา ชื่อ-นามสกุล และรหัสผ่านให้ครบ';
-    errBox.style.display = 'block';
-    return;
-  }
-  if(pw.length < 4){
-    errBox.textContent = 'รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร';
-    errBox.style.display = 'block';
-    return;
-  }
-  if(pw !== pw2){
-    errBox.textContent = 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน';
-    errBox.style.display = 'block';
-    return;
-  }
+  if(!id || !name || !pw || !pw2) return fail('กรุณากรอกรหัสนักศึกษา ชื่อ-นามสกุล และรหัสผ่านให้ครบ');
+  if(!CODE_RE.test(id)) return fail('รหัสนักศึกษาใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง (2-40 ตัว)');
+  if(pw.length < 6) return fail('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+  if(pw !== pw2) return fail('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+  if(!sb) return fail('ยังเชื่อมต่อฐานข้อมูลไม่ได้ กรุณารีเฟรชหน้านี้');
   btn.disabled = true; btn.textContent = 'กำลังสมัครสมาชิก...';
-  await refreshDB();
-  if(db.students[id]){
-    errBox.textContent = 'มีรหัสนักศึกษานี้ในระบบแล้ว กรุณาเข้าสู่ระบบแทน';
-    errBox.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'สมัครและเข้าสู่ระบบ';
-    return;
+  const { data, error } = await sb.auth.signUp({
+    email: emailFor(id), password: pw,
+    options: { data: { user_code:id, full_name:name, faculty } }
+  });
+  if(error){
+    const m = (error.message||'').toLowerCase();
+    if(m.includes('already') || m.includes('database error')) return fail('มีรหัสนักศึกษานี้ในระบบแล้ว กรุณาเข้าสู่ระบบแทน');
+    if(m.includes('password')) return fail('รหัสผ่านไม่ปลอดภัยพอ กรุณาตั้งรหัสผ่านใหม่ให้เดาได้ยากขึ้น');
+    return fail('สมัครสมาชิกไม่สำเร็จ: ' + error.message);
   }
-  db.students[id] = {password:pw, name, faculty, major:'', year:'', section:'', curriculum:'', admit:'', dob:'', address:'', phone:'', email:'', facebook:'', line:'', other:''};
-  await dbSet(db);
+  let user = data.user;
+  if(!data.session){
+    const r = await sb.auth.signInWithPassword({ email: emailFor(id), password: pw });
+    if(r.error) return fail('สมัครสมาชิกแล้ว แต่เข้าสู่ระบบอัตโนมัติไม่สำเร็จ: ' + r.error.message);
+    user = r.data.user;
+  }
+  const p = await fetchProfile(user.id);
+  if(!p){ await sb.auth.signOut(); return fail('สร้างบัญชีไม่สมบูรณ์ กรุณาลองเข้าสู่ระบบอีกครั้ง'); }
   btn.disabled = false; btn.textContent = 'สมัครและเข้าสู่ระบบ';
-  session = {type:'student', id};
-  saveSession();
-  studentPage = 'info'; adminPage = 'activities';
-  document.getElementById('register-view').style.display = 'none';
-  document.getElementById('app-view').classList.add('show');
-  renderApp();
+  await startSession(p);
 }
 
 async function doLogin(){
   const btn = document.getElementById('login-btn');
   const id = document.getElementById('login-id').value.trim();
-  const pw = document.getElementById('login-pw').value.trim();
+  const pw = document.getElementById('login-pw').value;
   const errBox = document.getElementById('login-error');
+  const fail = (msg)=>{ errBox.textContent = msg; errBox.style.display = 'block'; btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ'; };
   errBox.style.display = 'none';
+  if(!sb) return fail('ยังเชื่อมต่อฐานข้อมูลไม่ได้ กรุณารีเฟรชหน้านี้');
+  if(!CODE_RE.test(id) || !pw) return fail('รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
   btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ...';
-  await refreshDB();
-  btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
-  const tableMapLogin = {student:'students', admin:'admins'};
-  const table = db[tableMapLogin[loginType]];
-  const rec = table[id];
-  if(!rec || rec.password !== pw){
-    errBox.textContent = 'รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง';
-    errBox.style.display = 'block';
-    return;
+  const { data, error } = await sb.auth.signInWithPassword({ email: emailFor(id), password: pw });
+  if(error){
+    if((error.message||'').toLowerCase().includes('invalid login')) return fail('รหัสผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง');
+    return fail('เข้าสู่ระบบไม่สำเร็จ: ' + error.message);
   }
-  session = {type: loginType, id};
-  saveSession();
-  studentPage = 'info'; adminPage = 'activities';
-  document.getElementById('login-view').style.display = 'none';
-  document.getElementById('app-view').classList.add('show');
-  renderApp();
+  const p = await fetchProfile(data.user.id);
+  const roleOk = p && (loginType==='student' ? p.role==='student' : (p.role==='admin' || p.role==='staff'));
+  if(!roleOk){
+    await sb.auth.signOut();
+    return fail('บัญชีนี้ไม่ใช่ประเภทผู้ใช้ที่เลือก กรุณาเลือกประเภทผู้ใช้ให้ถูกต้อง');
+  }
+  btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+  await startSession(p);
 }
 
 function toggleSidebar(){
@@ -574,14 +614,11 @@ function closeSidebar(){
   document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
-function doLogout(){
+async function doLogout(){
   closeSidebar();
-  session = null;
-  clearSession();
-  document.getElementById('app-view').classList.remove('show');
-  document.getElementById('login-view').style.display = 'flex';
-  document.getElementById('login-id').value='';
-  document.getElementById('login-pw').value='';
+  session = null;            // set first so the SIGNED_OUT listener does not run twice
+  try{ await sb.auth.signOut(); }catch(e){ console.error(e); }
+  resetToLogin();
 }
 
 function initials(name){
@@ -600,8 +637,8 @@ function renderStudentApp(){
   document.getElementById('sidebar').innerHTML = `
     <div class="brand"><div class="mark">S</div><div class="txt"><b>SAMS</b><small>ระบบจัดการกิจกรรม</small></div></div>
     <div class="user-chip">
-      <div class="av">${initials(s.name)}</div>
-      <div class="info"><b>${s.name}</b><small>รหัส ${session.id}</small></div>
+      <div class="av">${esc(initials(s.name))}</div>
+      <div class="info"><b>${esc(s.name)}</b><small>รหัส ${esc(session.id)}</small></div>
     </div>
     <button class="nav-item ${studentPage==='info'?'active':''}" onclick="goStudent('info')"><span class="dot"></span>ข้อมูลนักศึกษา</button>
     <button class="nav-item ${studentPage==='activities'?'active':''}" onclick="goStudent('activities')"><span class="dot"></span>การเข้าร่วมกิจกรรม</button>
@@ -623,18 +660,18 @@ function studentInfoPage(s){
     ['other','ช่องทางอื่นๆ']
   ];
   const fieldHtml = fields.map(([k,label])=>`
-    <div class="form-field"><label>${label}</label><input id="f_${k}" value="${(s[k]||'').replace(/"/g,'&quot;')}"></div>
+    <div class="form-field"><label>${label}</label><input id="f_${k}" value="${esc(s[k])}"></div>
   `).join('');
   return `
     <div class="page-head"><h2>ข้อมูลนักศึกษา</h2><p>ตรวจสอบและแก้ไขข้อมูลส่วนตัวของคุณ</p></div>
     <div class="card">
       <div class="profile-head">
-        <div class="avatar-lg">${initials(s.name)}</div>
-        <div><h3>${s.name}</h3><p>รหัสนักศึกษา ${session.id} · ${s.faculty}</p></div>
+        <div class="avatar-lg">${esc(initials(s.name))}</div>
+        <div><h3>${esc(s.name)}</h3><p>รหัสนักศึกษา ${esc(session.id)} · ${esc(s.faculty)}</p></div>
       </div>
     </div>
     <div class="card">
-      <div class="form-field"><label>ที่อยู่</label><textarea id="f_address" rows="2">${(s.address||'')}</textarea></div>
+      <div class="form-field"><label>ที่อยู่</label><textarea id="f_address" rows="2">${esc(s.address)}</textarea></div>
       <div class="grid2">${fieldHtml}</div>
       <button class="btn primary" onclick="saveStudentInfo()">บันทึกข้อมูล</button>
       <span id="save-msg" style="font-size:12.5px;color:var(--green);margin-left:10px;display:none;">บันทึกแล้ว</span>
@@ -643,17 +680,22 @@ function studentInfoPage(s){
 }
 async function saveStudentInfo(){
   const s = db.students[session.id];
-  ['name','faculty','major','year','section','curriculum','admit','dob','phone','email','facebook','line','other'].forEach(k=>{
-    const el = document.getElementById('f_'+k);
-    if(el) s[k] = el.value;
-  });
-  const addr = document.getElementById('f_address');
-  if(addr) s.address = addr.value;
-  await dbSet(db);
-  const msg = document.getElementById('save-msg');
-  msg.style.display='inline';
-  setTimeout(()=>msg.style.display='none', 1800);
+  const val = k => { const el = document.getElementById('f_'+k); return el ? el.value.trim() : (s[k]||''); };
+  const addrEl = document.getElementById('f_address');
+  const patch = {
+    full_name: val('name') || s.name,
+    faculty: val('faculty'), major: val('major'), class_year: val('year'),
+    section: val('section'), curriculum: val('curriculum'), admit_term: val('admit'), dob: val('dob'),
+    phone: val('phone'), contact_email: val('email'), facebook: val('facebook'), line_id: val('line'),
+    other_contact: val('other'),
+    address: addrEl ? addrEl.value : (s.address||'')
+  };
+  const { error } = await sb.from('profiles').update(patch).eq('id', session.uid);
+  if(error){ alert('บันทึกข้อมูลไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderStudentApp();
+  const msg = document.getElementById('save-msg');
+  if(msg){ msg.style.display='inline'; setTimeout(()=>{ msg.style.display='none'; }, 1800); }
 }
 
 function studentRegistrationFor(actId){
@@ -677,8 +719,8 @@ function studentActivitiesPage(){
       <div class="act-card">
         <div>
           ${renderTag(a.type)}
-          <h4>${a.name}</h4>
-          <div class="meta">${a.date} · ${a.time} · ${a.location}<br>สะสม ${a.hours} ชั่วโมงกิจกรรม · ปีการศึกษา ${a.year||'-'}</div>
+          <h4>${esc(a.name)}</h4>
+          <div class="meta">${esc(a.date)} · ${esc(a.time)} · ${esc(a.location)}<br>สะสม ${a.hours} ชั่วโมงกิจกรรม · ปีการศึกษา ${esc(a.year||'-')}</div>
         </div>
         <div style="text-align:right;display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
           ${statusHtml}${actionHtml}
@@ -691,20 +733,21 @@ function studentActivitiesPage(){
   `;
 }
 async function registerActivity(actId){
+  const { error } = await sb.from('registrations').insert({ activity_id:actId, student_id:session.uid, status:'registered', hours:0 });
+  if(error && error.code !== '23505'){ alert('ลงทะเบียนไม่สำเร็จ: ' + error.message); return; }
   await refreshDB();
-  const id = 'R'+Date.now();
-  db.registrations[id] = {activityId:actId, studentId:session.id, status:'registered', hours:0, date:new Date().toISOString().slice(0,10)};
-  await dbSet(db);
   renderStudentApp();
 }
 async function unregisterActivity(actId){
-  const reg = studentRegistrationFor(actId);
-  if(reg){
-    const key = Object.keys(db.registrations).find(k=>db.registrations[k]===reg);
-    delete db.registrations[key];
-    await dbSet(db);
-    renderStudentApp();
-  }
+  const key = Object.keys(db.registrations).find(k=>{
+    const r = db.registrations[k];
+    return r.activityId===actId && r.studentId===session.id;
+  });
+  if(!key) return;
+  const { error } = await sb.from('registrations').delete().eq('id', key);
+  if(error){ alert('ยกเลิกไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
+  renderStudentApp();
 }
 function studentReportPage(){
   const myRegs = Object.values(db.registrations).filter(r=>r.studentId===session.id);
@@ -713,7 +756,7 @@ function studentReportPage(){
   const rows = myRegs.map(r=>{
     const a = db.activities[r.activityId] || {};
     return `<tr>
-      <td>${a.name||'-'}</td><td>${a.date||'-'}</td>
+      <td>${esc(a.name||'-')}</td><td>${esc(a.date||'-')}</td>
       <td>${r.status==='attended'?`<span class="badge attended">เข้าร่วมแล้ว</span>`:`<span class="badge registered">ลงทะเบียนแล้ว</span>`}</td>
       <td>${r.status==='attended'?r.hours:'-'}</td>
     </tr>`;
@@ -744,16 +787,16 @@ function printStudentReport(){
     const a = db.activities[r.activityId] || {};
     return `<tr>
       <td style="text-align:center;">${i+1}</td>
-      <td>${a.name||'-'}</td>
-      <td>${a.type||'-'}</td>
-      <td>${a.date||'-'}</td>
+      <td>${esc(a.name||'-')}</td>
+      <td>${esc(a.type||'-')}</td>
+      <td>${esc(a.date||'-')}</td>
       <td style="text-align:center;">${r.hours||0}</td>
     </tr>`;
   }).join('');
   const win = window.open('', '_blank');
   win.document.write(`
     <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
-    <title>ใบสรุปผลกิจกรรม - ${s.name}</title>
+    <title>ใบสรุปผลกิจกรรม - ${esc(s.name)}</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600&display=swap');
       *{box-sizing:border-box;}
@@ -787,9 +830,9 @@ function printStudentReport(){
       </div>
       <div class="info-box">
         <table>
-          <tr><td class="lbl">ชื่อ-นามสกุล</td><td><b>${s.name}</b></td><td class="lbl">รหัสนักศึกษา</td><td><b>${session.id}</b></td></tr>
-          <tr><td class="lbl">คณะ</td><td>${s.faculty||'-'}</td><td class="lbl">สาขาวิชา</td><td>${s.major||'-'}</td></tr>
-          <tr><td class="lbl">ชั้นปี</td><td>${s.year||'-'}</td><td class="lbl">วันที่ออกเอกสาร</td><td>${today}</td></tr>
+          <tr><td class="lbl">ชื่อ-นามสกุล</td><td><b>${esc(s.name)}</b></td><td class="lbl">รหัสนักศึกษา</td><td><b>${esc(session.id)}</b></td></tr>
+          <tr><td class="lbl">คณะ</td><td>${esc(s.faculty||'-')}</td><td class="lbl">สาขาวิชา</td><td>${esc(s.major||'-')}</td></tr>
+          <tr><td class="lbl">ชั้นปี</td><td>${esc(s.year||'-')}</td><td class="lbl">วันที่ออกเอกสาร</td><td>${today}</td></tr>
         </table>
       </div>
       <div class="stats">
@@ -820,15 +863,15 @@ function staffActivitiesPage(){
     const regCount = Object.values(db.registrations).filter(r=>r.activityId===id).length;
     return `<tr>
       <td>${renderTag(a.type)}</td>
-      <td><b>${a.name}</b><br><span style="color:var(--ink-soft);font-size:11.5px">${a.location} · ปีการศึกษา ${a.year||'-'}</span></td>
-      <td>${a.date}<br><span style="color:var(--ink-soft);font-size:11.5px">${a.time}</span></td>
+      <td><b>${esc(a.name)}</b><br><span style="color:var(--ink-soft);font-size:11.5px">${esc(a.location)} · ปีการศึกษา ${esc(a.year||'-')}</span></td>
+      <td>${esc(a.date)}<br><span style="color:var(--ink-soft);font-size:11.5px">${esc(a.time)}</span></td>
       <td>${a.hours} ชม.</td>
       <td>${regCount} คน</td>
       <td><button class="btn small danger" onclick="deleteActivity('${id}')">ลบ</button></td>
     </tr>`;
   }).join('');
-  const typeOptions = db.activityTypes.map(t=>`<option>${t}</option>`).join('');
-  const yearOptions = db.academicYears.list.map(y=>`<option ${y===db.academicYears.current?'selected':''}>${y}</option>`).join('');
+  const typeOptions = db.activityTypes.map(t=>`<option>${esc(t)}</option>`).join('');
+  const yearOptions = db.academicYears.list.map(y=>`<option ${y===db.academicYears.current?'selected':''}>${esc(y)}</option>`).join('');
   return `
     <div class="page-head"><h2>จัดการกิจกรรม</h2><p>เพิ่ม แก้ไข หรือลบกิจกรรมของโรงเรียน</p></div>
     <div class="card">
@@ -857,30 +900,33 @@ function staffActivitiesPage(){
 async function addActivity(){
   const name = document.getElementById('na_name').value.trim();
   if(!name){ alert('กรุณากรอกชื่อกิจกรรม'); return; }
-  const id = 'A'+Date.now();
-  db.activities[id] = {
+  const typeId = typeIdByName[document.getElementById('na_type').value];
+  const yearId = yearIdByName[document.getElementById('na_year').value];
+  if(!typeId || !yearId){ alert('กรุณาเลือกประเภทกิจกรรมและปีการศึกษา'); return; }
+  const { error } = await sb.from('activities').insert({
     name,
-    type: document.getElementById('na_type').value,
-    year: document.getElementById('na_year').value,
-    location: document.getElementById('na_location').value,
-    date: document.getElementById('na_date').value || '-',
-    time: document.getElementById('na_time').value || '-',
-    hours: Number(document.getElementById('na_hours').value)||0,
-    teacher: session.id
-  };
-  await dbSet(db);
+    type_id: typeId,
+    academic_year_id: yearId,
+    location: document.getElementById('na_location').value.trim() || null,
+    activity_date: document.getElementById('na_date').value || null,
+    time_range: document.getElementById('na_time').value.trim() || null,
+    hours: Math.max(0, Number(document.getElementById('na_hours').value) || 0),
+    created_by: session.uid
+  });
+  if(error){ alert('เพิ่มกิจกรรมไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
 async function deleteActivity(id){
   if(!confirm('ยืนยันการลบกิจกรรมนี้?')) return;
-  delete db.activities[id];
-  Object.keys(db.registrations).forEach(k=>{ if(db.registrations[k].activityId===id) delete db.registrations[k]; });
-  await dbSet(db);
+  const { error } = await sb.from('activities').delete().eq('id', id);   // registrations are removed by ON DELETE CASCADE
+  if(error){ alert('ลบกิจกรรมไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
 
 function staffRecordPage(){
-  const options = Object.entries(db.activities).map(([id,a])=>`<option value="${id}" ${staffPickedActivity===id?'selected':''}>${a.name}</option>`).join('');
+  const options = Object.entries(db.activities).map(([id,a])=>`<option value="${id}" ${staffPickedActivity===id?'selected':''}>${esc(a.name)}</option>`).join('');
   let body = '';
   if(staffPickedActivity && db.activities[staffPickedActivity]){
     const regs = Object.entries(db.registrations).filter(([k,r])=>r.activityId===staffPickedActivity);
@@ -888,7 +934,7 @@ function staffRecordPage(){
     const rows = regs.map(([rid,r])=>{
       const s = db.students[r.studentId] || {name:'(ไม่พบข้อมูล)'};
       return `<tr>
-        <td>${r.studentId}</td><td>${s.name}</td>
+        <td>${esc(r.studentId)}</td><td>${esc(s.name)}</td>
         <td>${r.status==='attended'?`<span class="badge attended">เข้าร่วมแล้ว</span>`:`<span class="badge registered">ลงทะเบียนแล้ว</span>`}</td>
         <td><input type="number" id="hr_${rid}" value="${r.status==='attended'?r.hours:act.hours}" style="width:70px;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;"></td>
         <td>${r.status==='attended' ? '' : `<button class="btn small primary" onclick="markAttended('${rid}')">บันทึกเข้าร่วม</button>`}</td>
@@ -915,10 +961,10 @@ function staffRecordPage(){
 }
 async function markAttended(rid){
   const hrInput = document.getElementById('hr_'+rid);
-  const hours = Number(hrInput.value)||0;
-  db.registrations[rid].status = 'attended';
-  db.registrations[rid].hours = hours;
-  await dbSet(db);
+  const hours = Math.max(0, Number(hrInput.value) || 0);
+  const { error } = await sb.from('registrations').update({ status:'attended', hours }).eq('id', rid);
+  if(error){ alert('บันทึกผลไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
 
@@ -926,8 +972,8 @@ function staffStudentsPage(){
   const rows = Object.entries(db.students).map(([id,s])=>{
     const hours = Object.values(db.registrations).filter(r=>r.studentId===id && r.status==='attended').reduce((sum,r)=>sum+Number(r.hours||0),0);
     return `<tr>
-      <td>${id}</td><td>${s.name}</td><td>${s.faculty}</td><td>${s.major}</td><td>ปี ${s.year}</td>
-      <td>${s.phone||'-'}</td><td>${hours} ชม.</td>
+      <td>${esc(id)}</td><td>${esc(s.name)}</td><td>${esc(s.faculty)}</td><td>${esc(s.major)}</td><td>ปี ${esc(s.year)}</td>
+      <td>${esc(s.phone||'-')}</td><td>${hours} ชม.</td>
     </tr>`;
   }).join('');
   return `
@@ -943,13 +989,13 @@ function staffReportPage(){
   const actRows = Object.entries(db.activities).map(([id,a])=>{
     const regs = Object.values(db.registrations).filter(r=>r.activityId===id);
     const attended = regs.filter(r=>r.status==='attended').length;
-    return `<tr><td>${renderTag(a.type)} ${a.name}</td><td>${regs.length}</td><td>${attended}</td><td>${a.date}</td></tr>`;
+    return `<tr><td>${renderTag(a.type)} ${esc(a.name)}</td><td>${regs.length}</td><td>${attended}</td><td>${esc(a.date)}</td></tr>`;
   }).join('');
   const studentTotals = Object.entries(db.students).map(([id,s])=>{
     const hours = Object.values(db.registrations).filter(r=>r.studentId===id && r.status==='attended').reduce((sum,r)=>sum+Number(r.hours||0),0);
     return {id, name:s.name, hours};
   }).sort((a,b)=>b.hours-a.hours);
-  const topRows = studentTotals.map(t=>`<tr><td>${t.id}</td><td>${t.name}</td><td>${t.hours} ชม.</td></tr>`).join('');
+  const topRows = studentTotals.map(t=>`<tr><td>${esc(t.id)}</td><td>${esc(t.name)}</td><td>${t.hours} ชม.</td></tr>`).join('');
   const totalActs = Object.keys(db.activities).length;
   const totalRegs = Object.keys(db.registrations).length;
   const totalAttended = Object.values(db.registrations).filter(r=>r.status==='attended').length;
@@ -973,35 +1019,34 @@ function staffReportPage(){
   `;
 }
 
-document.getElementById('sync-note').textContent = hasCloudStorage
-  ? 'ข้อมูลจะซิงค์อัตโนมัติกับทุกอุปกรณ์ที่เปิดหน้านี้'
-  : 'เปิดไฟล์นี้แบบออฟไลน์ - ข้อมูลจะบันทึกเฉพาะเบราว์เซอร์นี้เท่านั้น';
+document.getElementById('sync-note').textContent = 'ข้อมูลเก็บบนฐานข้อมูลออนไลน์ ซิงค์ทุกอุปกรณ์อัตโนมัติ';
 
 /* ============ ADMIN ============ */
 function renderAdminApp(){
   const ad = db.admins[session.id];
+  const isAdmin = session.appRole === 'admin';
   document.getElementById('sidebar').innerHTML = `
     <div class="brand"><div class="mark">S</div><div class="txt"><b>SAMS</b><small>ระบบจัดการกิจกรรม</small></div></div>
     <div class="user-chip">
-      <div class="av">${initials(ad.name)}</div>
-      <div class="info"><b>${ad.name}</b><small>${ad.role||'ผู้ดูแลระบบ'}</small></div>
+      <div class="av">${esc(initials(ad.name))}</div>
+      <div class="info"><b>${esc(ad.name)}</b><small>${esc(ad.role||'ผู้ดูแลระบบ')}</small></div>
     </div>
     <button class="nav-item ${adminPage==='activities'?'active':''}" onclick="goAdmin('activities')"><span class="dot"></span>จัดการกิจกรรม</button>
     <button class="nav-item ${adminPage==='record'?'active':''}" onclick="goAdmin('record')"><span class="dot"></span>บันทึกผลกิจกรรม</button>
     <button class="nav-item ${adminPage==='students'?'active':''}" onclick="goAdmin('students')"><span class="dot"></span>ข้อมูลนักศึกษา</button>
     <button class="nav-item ${adminPage==='report'?'active':''}" onclick="goAdmin('report')"><span class="dot"></span>รายงานสรุป</button>
-    <button class="nav-item ${adminPage==='types'?'active':''}" onclick="goAdmin('types')"><span class="dot"></span>ประเภทกิจกรรม</button>
-    <button class="nav-item ${adminPage==='years'?'active':''}" onclick="goAdmin('years')"><span class="dot"></span>ปีการศึกษา</button>
-    <button class="nav-item ${adminPage==='users'?'active':''}" onclick="goAdmin('users')"><span class="dot"></span>จัดการผู้ใช้งาน</button>
+    ${isAdmin ? `<button class="nav-item ${adminPage==='types'?'active':''}" onclick="goAdmin('types')"><span class="dot"></span>ประเภทกิจกรรม</button>` : ''}
+    ${isAdmin ? `<button class="nav-item ${adminPage==='years'?'active':''}" onclick="goAdmin('years')"><span class="dot"></span>ปีการศึกษา</button>` : ''}
+    ${isAdmin ? `<button class="nav-item ${adminPage==='users'?'active':''}" onclick="goAdmin('users')"><span class="dot"></span>จัดการผู้ใช้งาน</button>` : ''}
     <button class="nav-item logout" onclick="doLogout()"><span class="dot"></span>ออกจากระบบ</button>
   `;
   const main = document.getElementById('main');
   if(adminPage==='activities') main.innerHTML = staffActivitiesPage();
   else if(adminPage==='record') main.innerHTML = staffRecordPage();
   else if(adminPage==='students') main.innerHTML = staffStudentsPage();
-  else if(adminPage==='types') main.innerHTML = adminTypesPage();
-  else if(adminPage==='years') main.innerHTML = adminYearsPage();
-  else if(adminPage==='users') main.innerHTML = adminUsersPage();
+  else if(adminPage==='types' && isAdmin) main.innerHTML = adminTypesPage();
+  else if(adminPage==='years' && isAdmin) main.innerHTML = adminYearsPage();
+  else if(adminPage==='users' && isAdmin) main.innerHTML = adminUsersPage();
   else main.innerHTML = staffReportPage();
 }
 async function goAdmin(p){ adminPage = p; if(p==='record') staffPickedActivity=null; closeSidebar(); await refreshDB(); renderAdminApp(); }
@@ -1010,7 +1055,7 @@ function adminTypesPage(){
   const rows = db.activityTypes.map(t=>{
     const inUse = Object.values(db.activities).filter(a=>a.type===t).length;
     return `<tr><td>${renderTag(t)}</td><td>${inUse} กิจกรรม</td>
-    <td>${inUse===0?`<button class="btn small danger" onclick="deleteType('${t}')">ลบ</button>`:'<span style="color:var(--ink-soft);font-size:12px">ใช้งานอยู่</span>'}</td></tr>`;
+    <td>${inUse===0?`<button class="btn small danger" onclick="deleteType('${typeIdByName[t]}')">ลบ</button>`:'<span style="color:var(--ink-soft);font-size:12px">ใช้งานอยู่</span>'}</td></tr>`;
   }).join('');
   return `
     <div class="page-head"><h2>ประเภทกิจกรรม</h2><p>กำหนดประเภทกิจกรรมที่เลือกใช้เมื่อสร้างกิจกรรม</p></div>
@@ -1029,14 +1074,16 @@ async function addType(){
   const val = input.value.trim();
   if(!val){ alert('กรุณากรอกชื่อประเภทกิจกรรม'); return; }
   if(db.activityTypes.includes(val)){ alert('มีประเภทนี้อยู่แล้ว'); return; }
-  db.activityTypes.push(val);
-  await dbSet(db);
+  const { error } = await sb.from('activity_types').insert({ name: val });
+  if(error){ alert(error.code==='23505' ? 'มีประเภทนี้อยู่แล้ว' : 'เพิ่มประเภทไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
-async function deleteType(t){
+async function deleteType(id){
   if(!confirm('ยืนยันการลบประเภทกิจกรรมนี้?')) return;
-  db.activityTypes = db.activityTypes.filter(x=>x!==t);
-  await dbSet(db);
+  const { error } = await sb.from('activity_types').delete().eq('id', id);
+  if(error){ alert('ลบประเภทไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
 
@@ -1045,8 +1092,8 @@ function adminYearsPage(){
     const isCurrent = y===db.academicYears.current;
     const inUse = Object.values(db.activities).filter(a=>a.year===y).length;
     const actions = [];
-    if(!isCurrent) actions.push(`<button class="btn small ghost" onclick="setCurrentYear('${y}')">ตั้งเป็นปีปัจจุบัน</button>`);
-    if(!isCurrent && inUse===0) actions.push(`<button class="btn small danger" onclick="deleteYear('${y}')">ลบ</button>`);
+    if(!isCurrent) actions.push(`<button class="btn small ghost" onclick="setCurrentYear('${yearIdByName[y]}')">ตั้งเป็นปีปัจจุบัน</button>`);
+    if(!isCurrent && inUse===0) actions.push(`<button class="btn small danger" onclick="deleteYear('${yearIdByName[y]}')">ลบ</button>`);
     return `<tr><td>ปีการศึกษา ${y} ${isCurrent?'<span class="badge attended">ปีปัจจุบัน</span>':''}</td><td>${inUse} กิจกรรม</td><td>${actions.join(' ')}</td></tr>`;
   }).join('');
   return `
@@ -1066,29 +1113,34 @@ async function addYear(){
   const val = input.value.trim();
   if(!val){ alert('กรุณากรอกปีการศึกษา'); return; }
   if(db.academicYears.list.includes(val)){ alert('มีปีการศึกษานี้อยู่แล้ว'); return; }
-  db.academicYears.list.push(val);
-  await dbSet(db);
+  const { error } = await sb.from('academic_years').insert({ year: val, is_current: false });
+  if(error){ alert(error.code==='23505' ? 'มีปีการศึกษานี้อยู่แล้ว' : 'เพิ่มปีการศึกษาไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
-async function setCurrentYear(y){
-  db.academicYears.current = y;
-  await dbSet(db);
+async function setCurrentYear(yid){
+  const year = Object.keys(yearIdByName).find(k=>yearIdByName[k]===yid);
+  if(!year) return;
+  const { error } = await sb.rpc('set_current_academic_year', { p_year: year });
+  if(error){ alert('ตั้งปีปัจจุบันไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
-async function deleteYear(y){
+async function deleteYear(yid){
   if(!confirm('ยืนยันการลบปีการศึกษานี้?')) return;
-  db.academicYears.list = db.academicYears.list.filter(x=>x!==y);
-  await dbSet(db);
+  const { error } = await sb.from('academic_years').delete().eq('id', yid);
+  if(error){ alert('ลบปีการศึกษาไม่สำเร็จ: ' + error.message); return; }
+  await refreshDB();
   renderAdminApp();
 }
 
 function adminUsersPage(){
   const adminRows = Object.entries(db.admins).map(([id,a])=>`
-    <tr><td>${id}</td><td>${a.name}</td><td>${a.role||'ผู้ดูแลระบบ'}</td>
-    <td>${(id!==session.id && Object.keys(db.admins).length>1) ? `<button class="btn small danger" onclick="deleteUser('admins','${id}')">ลบ</button>` : '<span style="color:var(--ink-soft);font-size:12px">-</span>'}</td></tr>`).join('');
+    <tr><td>${esc(id)}</td><td>${esc(a.name)}</td><td>${esc(a.role||'ผู้ดูแลระบบ')}</td>
+    <td>${(id!==session.id && Object.keys(db.admins).length>1) ? `<button class="btn small danger" onclick="deleteUser('${a._id}','admins')">ลบ</button>` : '<span style="color:var(--ink-soft);font-size:12px">-</span>'}</td></tr>`).join('');
   const studentRows = Object.entries(db.students).map(([id,s])=>`
-    <tr><td>${id}</td><td>${s.name}</td><td>${s.faculty||'-'}</td>
-    <td><button class="btn small danger" onclick="deleteUser('students','${id}')">ลบ</button></td></tr>`).join('');
+    <tr><td>${esc(id)}</td><td>${esc(s.name)}</td><td>${esc(s.faculty||'-')}</td>
+    <td><button class="btn small danger" onclick="deleteUser('${s._id}','students')">ลบ</button></td></tr>`).join('');
 
   return `
     <div class="page-head"><h2>จัดการผู้ใช้งาน</h2><p>เพิ่ม ลบ และกำหนดสิทธิ์ผู้ใช้งานในระบบ</p></div>
@@ -1117,23 +1169,43 @@ function adminUsersPage(){
     </div>
   `;
 }
+async function callAdminUsers(body){
+  const { data, error } = await sb.functions.invoke('admin-users', { body });
+  if(error){
+    let code = error.message;
+    try{ const j = await error.context.json(); if(j && j.error) code = j.error; }catch(e){}
+    return { error: code };
+  }
+  return { data };
+}
+
 async function addUser(){
   const id = document.getElementById('nu_id').value.trim();
-  const pw = document.getElementById('nu_pw').value.trim();
+  const pw = document.getElementById('nu_pw').value;
   const name = document.getElementById('nu_name').value.trim();
   if(!id || !pw || !name){ alert('กรุณากรอกรหัสผู้ใช้ รหัสผ่าน และชื่อ-นามสกุลให้ครบ'); return; }
-  const table = db.admins;
-  if(table[id]){ alert('มีรหัสผู้ใช้นี้อยู่แล้วในระบบ'); return; }
-  table[id] = {password:pw, name, role:'ผู้ดูแลระบบ'};
-  await dbSet(db);
+  if(!CODE_RE.test(id)){ alert('รหัสผู้ใช้ใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง (2-40 ตัว)'); return; }
+  if(pw.length < 6){ alert('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'); return; }
+  const { error } = await callAdminUsers({ action:'create_admin', user_code:id, password:pw, full_name:name });
+  if(error){
+    const msgs = { user_exists:'มีรหัสผู้ใช้นี้อยู่แล้วในระบบ', invalid_user_code:'รหัสผู้ใช้ไม่ถูกต้อง', password_too_short:'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', forbidden:'ไม่มีสิทธิ์ดำเนินการ' };
+    alert(msgs[error] || ('เพิ่มผู้ใช้ไม่สำเร็จ: ' + error));
+    return;
+  }
+  await refreshDB();
   renderAdminApp();
 }
-async function deleteUser(table, id){
+async function deleteUser(uid, table){
   if(table==='admins' && Object.keys(db.admins).length<=1){ alert('ต้องมีผู้ดูแลระบบอย่างน้อย 1 คนในระบบ'); return; }
-  if(table==='admins' && id===session.id){ alert('ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้'); return; }
+  if(uid===session.uid){ alert('ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้'); return; }
   if(!confirm('ยืนยันการลบผู้ใช้งานนี้?')) return;
-  delete db[table][id];
-  await dbSet(db);
+  const { error } = await callAdminUsers({ action:'delete_user', user_id:uid });
+  if(error){
+    const msgs = { last_admin:'ต้องมีผู้ดูแลระบบอย่างน้อย 1 คนในระบบ', cannot_delete_self:'ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้', forbidden:'ไม่มีสิทธิ์ดำเนินการ' };
+    alert(msgs[error] || ('ลบผู้ใช้ไม่สำเร็จ: ' + error));
+    return;
+  }
+  await refreshDB();
   renderAdminApp();
 }
 
